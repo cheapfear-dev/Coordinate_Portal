@@ -126,13 +126,6 @@
   .btn-mini.kml:hover{background:rgba(90,210,232,.12)}
   .btn[disabled]{opacity:.45; pointer-events:none}
 
-  details{margin-top:16px; border-top:1px dashed var(--line); padding-top:12px}
-  summary{cursor:pointer; font-family:"Space Grotesk"; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--mut)}
-  summary:hover{color:var(--amber)}
-  details pre{margin-top:10px; background:#0a121a; border:1px solid var(--line); border-radius:8px; padding:12px;
-              font-family:"IBM Plex Mono",monospace; font-size:12px; color:#a9d3e2; overflow:auto; line-height:1.7}
-  details p{font-size:12.5px; color:var(--mut); margin-top:8px; line-height:1.55}
-
   .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:14px 16px}
   @media (max-width:640px){ .stats{grid-template-columns:repeat(2,1fr)} }
   .chip{border-left:3px solid var(--cyan); background:rgba(9,17,25,.55); border-radius:0 9px 9px 0; padding:9px 12px}
@@ -163,7 +156,6 @@
   .lchip i{width:8px; height:8px; border-radius:2px; background:var(--pink)}
   .lchip button{border:0; background:transparent; color:#ff9dc9; cursor:pointer; font-size:12px; padding:2px 6px; border-radius:50%; transition:.15s}
   .lchip button:hover{background:rgba(255,79,163,.28); color:#fff}
-  .layerhint{font-size:11px; color:var(--mut)}
 
   #mapwrap{position:relative}
   #map{height:clamp(420px, calc(100vh - 330px), 760px); border-radius:0 0 12px 12px; background:#dde7ee}
@@ -220,6 +212,33 @@
   .promoline{display:flex; gap:8px; margin-top:12px; align-items:center}
   .promoline input{flex:1}
 
+  /* ── Справка ── */
+  .help-card{max-width:1020px; height:88vh; display:flex; flex-direction:column; overflow:hidden}
+  .help-layout{display:grid; grid-template-columns:260px 1fr; gap:18px; margin-top:14px; flex:1; min-height:0}
+  @media (max-width:780px){ .help-layout{grid-template-columns:1fr} .help-nav{max-height:170px} }
+  .help-nav{overflow:auto; display:flex; flex-direction:column; gap:4px; padding-right:6px}
+  .help-nav button{
+    text-align:left; background:transparent; border:1px solid transparent; border-radius:8px;
+    color:var(--mut); padding:8px 10px; font-size:12.5px; cursor:pointer; line-height:1.35;
+    font-family:"IBM Plex Sans",system-ui,sans-serif; transition:.15s;
+  }
+  .help-nav button:hover{color:var(--ink); background:rgba(255,255,255,.04)}
+  .help-nav button.on{color:var(--amber); border-color:rgba(255,180,84,.4); background:rgba(255,180,84,.08)}
+  .help-content{overflow:auto; padding:4px 10px 14px 4px; font-size:13.5px; line-height:1.68; color:#cfe0ea}
+  .help-content h4{font-family:"Space Grotesk"; font-size:16px; margin:8px 0 10px; color:var(--cyan); letter-spacing:.03em}
+  .help-content p{margin:0 0 10px}
+  .help-content ul{margin:0 0 10px 18px}
+  .help-content li{margin:3px 0}
+  .help-content b{color:var(--amber)}
+  .help-content code{font-family:"IBM Plex Mono",monospace; color:var(--cyan); font-size:12.5px}
+  .help-content pre{
+    font-family:"IBM Plex Mono",monospace; background:#0a121a; border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; overflow:auto; font-size:12px; margin:0 0 12px; color:#a9d3e2; line-height:1.6;
+  }
+  .help-content table{border-collapse:collapse; width:100%; margin:0 0 12px; font-size:12.5px}
+  .help-content th,.help-content td{border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top}
+  .help-content th{color:var(--cyan); font-weight:600; background:rgba(90,210,232,.05)}
+
   footer{
     position:relative; z-index:1; border-top:1px solid var(--line); padding:16px 26px;
     display:flex; gap:26px; flex-wrap:wrap; align-items:center;
@@ -258,6 +277,7 @@
     <h1>Coordinate<em>&nbsp;Portal</em></h1>
     <div class="tagline">генератор границ · SHP/KML · пересчёт UTM/ГСК/МСК</div>
   </div>
+  <button class="btn btn-ghost btn-mini" id="helpBtn" title="Статьи о системах координат и форматах">？ Справка</button>
   <div class="datum">WGS 84 · a = <b>6 378 137.0 м</b> · 1/f = <b>298.257223563</b> · <span id="now"></span></div>
 </header>
 
@@ -428,8 +448,21 @@ placeholder="По одной точке в строке. Десятичные г
 
 <footer>
   <span><b>Coordinate Portal</b></span>
+  <a class="flink" id="helpLink">Справка</a>
   <a class="flink" id="privLink">Политика конфиденциальности</a>
 </footer>
+
+<!-- МОДАЛКА: СПРАВКА -->
+<div class="modal" id="helpModal" hidden>
+  <div class="modal-card help-card">
+    <button class="modal-x" id="helpClose">✕</button>
+    <h3>Справка</h3>
+    <div class="help-layout">
+      <nav class="help-nav" id="helpNav"></nav>
+      <div class="help-content" id="helpContent"></div>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="payModal" hidden>
   <div class="modal-card">
@@ -937,6 +970,144 @@ function parseKmlBytes(buf){
   return [];
 }
 
+/* ═══════════ СПРАВКА: статьи ═══════════ */
+const HELP=[
+{t:'Что такое МСК и как в неё пересчитать', h:`
+<h4>Что такое МСК</h4>
+<p><b>МСК (местная система координат)</b> — плоская прямоугольная система, установленная для территории субъекта РФ. Современные МСК строятся на <b>ГСК‑2011</b>, старые — на СК‑95 или СК‑42.</p>
+<p>Параметры МСК: эллипсоид, осевые меридианы зон, ложные смещения X₀/Y₀, масштабный коэффициент (обычно 1). Сами параметры публикуются в региональных нормативных актах, а вот <b>«ключи перехода» от WGS‑84 к МСК — информация ограниченного доступа</b>, их выдаёт Росреестр.</p>
+<h4>Цепочка пересчёта</h4>
+<pre>WGS 84 → (7 параметров) → ГСК‑2011 (широта B, долгота L)
+       → (Гаусс‑Крюгер с осевым меридианом вашей зоны) → X, Y в МСК</pre>
+<p>В обратную сторону знаки параметров меняются, а проекция обращается.</p>
+<h4>Как работать в портале</h4>
+<ul>
+<li>Выберите режим «МСК» и укажите осевой меридиан своей зоны и смещения X₀/Y₀ из паспорта МСК.</li>
+<li>Если у вас есть ключи dX, dY, dZ — введите их; без ключей сдвиг принимается нулевым, и погрешность может достигать десятков метров.</li>
+<li>Координаты вводите как X (север), Y (восток).</li>
+</ul>
+<p>Помните: чем дальше объект от осевого меридиана, тем больше искажения — у края 6° зоны линейные искашения достигают ~1 м/км.</p>`},
+{t:'Формат SHP изнутри', h:`
+<h4>Shapefile — это не один файл</h4>
+<ul>
+<li><b>.shp</b> — геометрия;</li>
+<li><b>.shx</b> — индекс для быстрого доступа к записям;</li>
+<li><b>.dbf</b> — таблица атрибутов (формат dBASE III);</li>
+<li><b>.prj</b> — система координат в тексте WKT;</li>
+<li>опционально .cpg, .sbn, .sbx.</li>
+</ul>
+<h4>Заголовок .shp (100 байт)</h4>
+<pre>байты 0–3    код файла 9997 (big-endian)
+байты 24–27  длина файла в 16-битных словах (big-endian)
+байты 28–31  версия 1000 (little-endian)
+байты 32–35  тип геометрии (5 = Polygon)
+байты 36–67  рамка: xmin, ymin, xmax, ymax (double LE)
+байты 68–99  диапазоны Z и M</pre>
+<h4>Запись полигона</h4>
+<pre>заголовок записи: номер и длина содержимого (big-endian)
+тип 5 · рамка · numParts · numPoints
+parts[]  — индексы начала колец
+points[] — пары x, y (double little-endian)</pre>
+<p>По спецификации внешнее кольцо идёт <b>по часовой стрелке</b>, дыры — против; портал ориентирует контуры автоматически.</p>
+<h4>Зачем нужен .prj</h4>
+<p>Без .prj ГИС не знает, в какой СК заданы координаты. Портал пишет <code>GEOGCS["GCS_WGS_1984",…]</code>, поэтому SHP всегда выгружается в WGS 84.</p>`},
+{t:'ГСК‑2011 против СК‑42', h:`
+<h4>Эллипсоиды</h4>
+<table>
+<tr><th>Система</th><th>Эллипсоид</th><th>a, м</th><th>1/f</th></tr>
+<tr><td>СК‑42 / СК‑95</td><td>Красовского</td><td>6 378 245.0</td><td>298.3</td></tr>
+<tr><td>ГСК‑2011</td><td>ГСК‑2011</td><td>6 378 136.5</td><td>298.2564151</td></tr>
+<tr><td>WGS 84</td><td>WGS 84</td><td>6 378 137.0</td><td>298.257223563</td></tr>
+</table>
+<h4>Главное различие</h4>
+<ul>
+<li>СК‑42 ориентирована на Пулково и квазигеоид советских нивелировок; ГСК‑2011 — геоцентрическая система, согласованная с ITRF.</li>
+<li>Расхождения координат СК‑42 и ГСК‑2011 достигают <b>сотен метров</b> — это в первую очередь смещение датума, а не эллипсоида.</li>
+<li>ГСК‑2011 согласована с WGS 84 на сантиметровом уровне (параметры EPSG:9773: dX=0.013, dY=−0.092, dZ=−0.03 м, повороты ~0.002–0.004″, m=0.0074 ppm).</li>
+</ul>
+<h4>Что выбрать</h4>
+<ul>
+<li>Старые материалы, топооснова, кадастр прошлых лет — СК‑42 / старые МСК.</li>
+<li>Новые работы — ГСК‑2011 / МСК‑2011 (обязательна с 2021 г. для недропользования, постепенно — для всего кадастра).</li>
+</ul>`},
+{t:'ГГ°ММ′СС″ в десятичные градусы', h:`
+<h4>Формула</h4>
+<pre>DD = знак × (ГГ + ММ/60 + СС/3600)</pre>
+<h4>Пример</h4>
+<pre>55°45′24.6″N = 55 + 45/60 + 24.6/3600 = 55.756833°
+37°37′03.5″E = 37 + 37/60 + 3.5/3600  = 37.617639°</pre>
+<h4>Обратный перевод</h4>
+<pre>55.756833° → ГГ = 55
+0.756833×60 = 45.40998 → ММ = 45
+0.40998×60 = 24.599   → СС ≈ 24.6″</pre>
+<h4>Что принимает портал</h4>
+<ul>
+<li><code>55°45'24.6"N 37°37'03.5"E</code> — с буквами полушарий;</li>
+<li><code>N 55° 45' 24.6", E 37° 37' 03.5"</code> — буквы впереди;</li>
+<li><code>55°45.402'N</code> — градусы и десятичные минуты;</li>
+<li><code>55 45 24.1 N 37 37 3.5 E</code> — без символов.</li>
+</ul>
+<p>Буквы S / W (Ю / З) дают отрицательный знак. Десятичный разделитель — точка.</p>`},
+{t:'Зоны UTM и Гаусса‑Крюгера', h:`
+<h4>UTM</h4>
+<pre>зона = floor((L + 180)/6) + 1
+осевой меридиан = зона×6 − 183
+масштаб k₀ = 0.9996, ложное восток 500 000 м</pre>
+<h4>Гаусс‑Крюгер (отечественная практика)</h4>
+<pre>осевой меридиан = 6°×N − 3°
+k₀ = 1
+Y записывают с номером зоны: Y = N·1 000 000 + 500 000 + восток</pre>
+<h4>Соответствие зон</h4>
+<p>Зона ГК N совпадает с поясом UTM N+30: зона ГК 16 (осевой 93°) — это UTM 46. Разница лишь в масштабе: UTM сжат коэффициентом 0.9996, поэтому координаты отличаются на ~0.04 % (до ~27 см/км от осевого меридиана).</p>
+<h4>Пример</h4>
+<p>Красноярск (L≈93°E): зона ГК 16, UTM 46. Точка Y=16 568 174.72 → зона 16, восток 68 174.72 м.</p>`},
+{t:'7 параметров и «ключи перехода»', h:`
+<h4>Зачем семь параметров</h4>
+<p>Две СК различаются не только началом координат (dX, dY, dZ), но и поворотом осей (rX, rY, rZ — доли угловой секунды) и масштабом (m — ppm). Игнорирование поворота и масштаба даёт ошибку до 1–2 м даже для «близких» систем.</p>
+<h4>Две конвенции</h4>
+<ul>
+<li><b>Position Vector</b> (EPSG:1033) — её используют EPSG и PROJ; портал применяет именно её;</li>
+<li><b>Coordinate Frame</b> (EPSG:1032) — встречается в части ГИС; знаки поворотов противоположны.</li>
+</ul>
+<p>Для ГСК‑2011 портал использует параметры EPSG:9773 (dX=0.013, dY=−0.092, dZ=−0.03 м и т.д.).</p>
+<h4>Про «ключи»</h4>
+<p>Для СК‑42 и МСК точные параметры зависят от региона и являются информацией ограниченного доступа. Публичные «общероссийские» наборы (например ≈ 24, −141, −80 м для СК‑42) дают ошибку в метры; для кадастровых работ получайте ключи в Росреестре.</p>`},
+{t:'WGS 84, ПЗ‑90, ГСК‑2011: как они связаны', h:`
+<table>
+<tr><th>Система</th><th>Сфера применения</th><th>Эллипсоид</th></tr>
+<tr><td>WGS 84</td><td>GPS</td><td>WGS 84 (a=6 378 137.0; 1/f=298.257223563)</td></tr>
+<tr><td>ПЗ‑90.11</td><td>ГЛОНАСС</td><td>ПЗ‑90.11 (a=6 378 136.0; 1/f=298.25784)</td></tr>
+<tr><td>ГСК‑2011</td><td>кадастр и картография РФ</td><td>ГСК‑2011 (a=6 378 136.5; 1/f=298.2564151)</td></tr>
+</table>
+<p>Все три — геоцентрические и согласованы между собой на сантиметровом уровне. Для задач с точностью 1–5 м их можно считать идентичными; для миллиметровой точности используйте официальные параметры приказов Росреестра.</p>
+<p>Коды EPSG: ГСК‑2011 — 7683; ГСК‑2011 / ГК зона N — 20900+N (зона 7 → 20907, зона 26 → 20926).</p>`},
+{t:'KML против SHP: что выбрать', h:`
+<table>
+<tr><th></th><th>KML</th><th>SHP</th></tr>
+<tr><td>Формат</td><td>XML, один файл</td><td>бинарный, комплект .shp/.shx/.dbf/.prj</td></tr>
+<tr><td>СК</td><td>только WGS 84</td><td>любая (через .prj)</td></tr>
+<tr><td>Атрибуты</td><td>description</td><td>полноценная таблица .dbf</td></tr>
+<tr><td>Где открывается</td><td>Google Earth, веб‑карты</td><td>QGIS, ArcGIS, MapInfo, кадастровые АРМ</td></tr>
+</table>
+<p>Для наглядности и обмена через веб‑сервисы — KML; для ГИС и кадастра — SHP. Портал пишет оба формата одновременно; KML по стандарту всегда в WGS 84, SHP — тоже в WGS 84 с файлом .prj.</p>`}
+];
+let helpCurrent=0;
+function showHelp(i){
+  helpCurrent=i;
+  const nav=$('helpNav');
+  nav.innerHTML='';
+  HELP.forEach((a,j)=>{
+    const b=document.createElement('button');
+    b.textContent=a.t;
+    if(j===i)b.classList.add('on');
+    b.addEventListener('click',()=>showHelp(j));
+    nav.appendChild(b);
+  });
+  $('helpContent').innerHTML=HELP[i].h;
+  $('helpContent').scrollTop=0;
+}
+function openHelp(i){ openModal('helpModal'); showHelp(i===undefined?helpCurrent:i); }
+
 const $=id=>document.getElementById(id);
 function toast(msg,type='ok'){
   const t=document.createElement('div'); t.className='toast'+(type==='err'?' err':type==='info'?' info':'');
@@ -1188,6 +1359,11 @@ $('addModeBtn').addEventListener('click',function(){
   $('mapwrap').classList.toggle('addmode',state.addMode);
 });
 
+/* Справка */
+$('helpBtn').addEventListener('click',()=>{ trackGoal('help_open'); openHelp(); });
+$('helpLink').addEventListener('click',e=>{ e.preventDefault(); trackGoal('help_open'); openHelp(); });
+$('helpClose').addEventListener('click',()=>closeModal('helpModal'));
+
 $('upgradeBtn').addEventListener('click',()=>{ trackGoal('paywall_open'); openModal('payModal'); });
 $('payClose').addEventListener('click',()=>closeModal('payModal'));
 $('payBtn').addEventListener('click',()=>{
@@ -1205,9 +1381,9 @@ $('promoBtn').addEventListener('click',()=>{
 $('privLink').addEventListener('click',e=>{ e.preventDefault(); openModal('privModal'); });
 $('privClose').addEventListener('click',()=>closeModal('privModal'));
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ closeModal('payModal'); closeModal('privModal'); }
+  if(e.key==='Escape'){ closeModal('payModal'); closeModal('privModal'); closeModal('helpModal'); }
 });
-[['payModal'],['privModal']].forEach(([id])=>{
+[['payModal'],['privModal'],['helpModal']].forEach(([id])=>{
   $(id).addEventListener('click',e=>{ if(e.target===$(id)) closeModal(id); });
 });
 
